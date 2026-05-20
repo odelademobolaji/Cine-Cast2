@@ -143,8 +143,6 @@ export default function SportPage() {
   const [hdIndex, setHdIndex] = useState(1);
   const [selectedSport, setSelectedSport] = useState<string | null>(null);
   const [selectedLeague, setSelectedLeague] = useState<string | null>(null);
-  // "safe" = served by our /api proxy (sanitised, popup-blocked, no malware-flagged domain
-  // in the URL bar). "direct" = direct iframe to embedme.top for users who want the original.
   const [embedMode, setEmbedMode] = useState<"safe" | "direct">("safe");
 
   const fetchMatches = async () => {
@@ -338,7 +336,6 @@ export default function SportPage() {
               key={`${selected.id}-${hdIndex}-${embedMode}`}
               title={matchTitle(selected)}
               sources={embedSources}
-              sandboxedSameOrigin={embedMode === "safe"}
             />
           ) : (
             <div style={{

@@ -12,87 +12,76 @@ export interface EmbedSource {
 interface EmbedPlayerProps {
   title: string;
   sources: EmbedSource[];
-  // When true, the iframe is loaded from our own origin (the /api/sport/embed
-  // proxy) and we add allow-same-origin to the sandbox so the proxied player
-  // JS can still use localStorage etc. When false (direct third-party embed),
-  // we drop allow-same-origin so the sandbox ACTUALLY blocks popups — with
-  // both allow-scripts AND allow-same-origin the sandbox is a no-op per spec.
-  sandboxedSameOrigin?: boolean;
 }
 
 function isDirectStream(url: string): boolean {
-  return url.includes(".m3u8") || url.includes(".mp4") || url.includes(".webm");
+  return /\.(m3u8|mp4|webm|mkv|mov)(\?|$)/i.test(url);
 }
 
-export default function EmbedPlayer({ title, sources, sandboxedSameOrigin = false }: EmbedPlayerProps) {
+export default function EmbedPlayer({ title, sources }: EmbedPlayerProps) {
   const playableSources = useMemo(
-    () => sources.filter((source) => source.url.trim().length > 0),
-    [sources]
+    () => sources.filter((s) => s.url.trim().length > 0),
+    [sources],
   );
   const [activeIndex, setActiveIndex] = useState(0);
   const [loadState, setLoadState] = useState<"loading" | "loaded" | "failed">("loading");
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const activeSource = playableSources[activeIndex] || playableSources[0];
+  const activeSource = playableSources[activeIndex] ?? playableSources[0];
 
-  // Parent-window popup blocker. Freezes window.open and intercepts the
-  // classic "popunder" blur-then-refocus trick.
+  // Parent-window popup blocker: freeze window.open + intercept popunder
+  // blur-then-refocus trick in the host page.
   useEffect(() => {
-    const originalOpen = window.open.bind(window);
+    const orig = window.open.bind(window);
     try {
-      Object.defineProperty(window, "open", { value: () => null, writable: false, configurable: true });
+      Object.defineProperty(window, "open", {
+        value: () => null,
+        writable: false,
+        configurable: true,
+      });
     } catch {
       window.open = () => null as unknown as Window;
     }
-    const handleBlur = () => { window.setTimeout(() => window.focus(), 50); };
-    window.addEventListener("blur", handleBlur);
+    const onBlur = () => window.setTimeout(() => { try { window.focus(); } catch { /* ignore */ } }, 50);
+    window.addEventListener("blur", onBlur);
     return () => {
-      try {
-        Object.defineProperty(window, "open", { value: originalOpen, writable: true, configurable: true });
-      } catch {
-        window.open = originalOpen;
-      }
-      window.removeEventListener("blur", handleBlur);
+      try { Object.defineProperty(window, "open", { value: orig, writable: true, configurable: true }); }
+      catch { window.open = orig; }
+      window.removeEventListener("blur", onBlur);
     };
   }, []);
 
-  // Reset load state whenever the iframe URL changes, and start a 12s
-  // failure timer so a never-loading iframe shows a useful error overlay
-  // instead of staring at a blank gray box.
+  // Reset load state on URL change and start a 15s failure timeout.
   useEffect(() => {
-    if (!activeSource) return;
-    if (isDirectStream(activeSource.url)) return;
+    if (!activeSource || isDirectStream(activeSource.url)) return;
     setLoadState("loading");
-    const timer = window.setTimeout(() => {
-      setLoadState((s) => (s === "loading" ? "failed" : s));
-    }, 12000);
-    return () => window.clearTimeout(timer);
+    const t = window.setTimeout(
+      () => setLoadState((s) => (s === "loading" ? "failed" : s)),
+      15000,
+    );
+    return () => window.clearTimeout(t);
   }, [activeSource?.url]);
 
   if (!activeSource) {
     return <div className="embed-empty">No embed source is configured for this title.</div>;
   }
 
-  const sandbox = sandboxedSameOrigin
-    ? "allow-scripts allow-same-origin allow-forms allow-presentation"
-    : "allow-scripts allow-forms allow-presentation";
-
   return (
     <div className="embed-shell">
       <div className="embed-controls" aria-label="Embed source controls">
         <div className="embed-source-tabs" role="tablist" aria-label="Video sources">
           {sources.map((source) => {
-            const playableIndex = playableSources.findIndex((s) => s.name === source.name);
-            const isPlayable = playableIndex >= 0;
+            const pi = playableSources.findIndex((s) => s.name === source.name);
+            const playable = pi >= 0;
             return (
               <button
                 key={source.name}
                 type="button"
-                className={`embed-source-tab${playableIndex === activeIndex ? " is-active" : ""}${isPlayable ? "" : " is-disabled"}`}
-                onClick={() => { if (isPlayable) setActiveIndex(playableIndex); }}
+                className={`embed-source-tab${pi === activeIndex ? " is-active" : ""}${playable ? "" : " is-disabled"}`}
+                onClick={() => { if (playable) setActiveIndex(pi); }}
                 role="tab"
-                aria-selected={playableIndex === activeIndex}
-                aria-disabled={!isPlayable}
-                disabled={!isPlayable}
+                aria-selected={pi === activeIndex}
+                aria-disabled={!playable}
+                disabled={!playable}
                 title={source.unavailableReason}
               >
                 {source.name}
@@ -120,11 +109,15 @@ export default function EmbedPlayer({ title, sources, sandboxedSameOrigin = fals
             key={activeSource.url}
             className="embed-player"
             src={activeSource.url}
-            title={`${title} - ${activeSource.name}`}
+            title={`${title} — ${activeSource.name}`}
             allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
             referrerPolicy="no-referrer"
             allowFullScreen
-            sandbox={sandbox}
+            // allow-same-origin is intentionally absent: combining it with
+            // allow-scripts makes the sandbox a no-op per the HTML spec.
+            // Our /api/sport/embed proxy + injected XHR interceptor handle
+            // all legitimate cross-origin requests server-side instead.
+            sandbox="allow-scripts allow-pointer-lock allow-presentation allow-orientation-lock"
             onLoad={() => setLoadState("loaded")}
             onError={() => setLoadState("failed")}
           />
@@ -133,7 +126,7 @@ export default function EmbedPlayer({ title, sources, sandboxedSameOrigin = fals
               style={{
                 position: "absolute",
                 inset: 0,
-                background: "rgba(10,10,10,0.92)",
+                background: "rgba(10,10,10,0.93)",
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
@@ -147,14 +140,22 @@ export default function EmbedPlayer({ title, sources, sandboxedSameOrigin = fals
               <div style={{ color: "#fff", fontSize: 15, fontWeight: 600 }}>
                 Stream blocked or unavailable
               </div>
-              <div style={{ color: "#aaa", fontSize: 13, maxWidth: 420 }}>
-                Your antivirus or network filter may be blocking the source. Try another source
-                tab above, switch to Direct mode, or open the stream in a new tab.
+              <div style={{ color: "#aaa", fontSize: 13, maxWidth: 400 }}>
+                Try a different source tab, or open the stream directly in a new tab.
               </div>
-              <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
                 <button
                   onClick={() => setActiveIndex((activeIndex + 1) % playableSources.length)}
-                  style={{ background: "#e50914", border: "none", color: "#fff", padding: "8px 16px", borderRadius: 6, cursor: "pointer", fontSize: 13, fontWeight: 600 }}
+                  style={{
+                    background: "#e50914",
+                    border: "none",
+                    color: "#fff",
+                    padding: "8px 18px",
+                    borderRadius: 6,
+                    cursor: "pointer",
+                    fontSize: 13,
+                    fontWeight: 600,
+                  }}
                 >
                   Try next source
                 </button>
@@ -162,7 +163,15 @@ export default function EmbedPlayer({ title, sources, sandboxedSameOrigin = fals
                   href={activeSource.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  style={{ background: "#1a1a1a", border: "1px solid #333", color: "#fff", padding: "8px 16px", borderRadius: 6, fontSize: 13, textDecoration: "none" }}
+                  style={{
+                    background: "#1a1a1a",
+                    border: "1px solid #333",
+                    color: "#ccc",
+                    padding: "8px 18px",
+                    borderRadius: 6,
+                    fontSize: 13,
+                    textDecoration: "none",
+                  }}
                 >
                   Open externally
                 </a>
