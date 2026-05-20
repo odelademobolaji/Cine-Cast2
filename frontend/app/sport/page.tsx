@@ -28,6 +28,7 @@ interface Match {
   category?: string;
   sport?: string;
   date?: number;
+  live?: boolean;
   poster?: string;
   sources?: MatchSource[];
   streams?: MatchSource[];
@@ -64,6 +65,25 @@ function matchSources(m: Match): string[] {
 
 function matchSport(m: Match): string {
   return (m.category || m.sport || "other").toLowerCase();
+}
+
+function isMatchLive(m: Match): boolean {
+  if (typeof m.live === "boolean") return m.live;
+  if (m.date == null) return true;
+  const ms = m.date > 1e12 ? m.date : m.date * 1000;
+  return ms <= Date.now();
+}
+
+function formatMatchTime(date: number): string {
+  const ms = date > 1e12 ? date : date * 1000;
+  const d = new Date(ms);
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const matchDayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const timeStr = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  if (matchDayStart === todayStart) return `Today ${timeStr}`;
+  if (matchDayStart === todayStart + 86400000) return `Tomorrow ${timeStr}`;
+  return d.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" }) + ` ${timeStr}`;
 }
 
 function titleCase(s: string): string {
@@ -200,6 +220,21 @@ export default function SportPage() {
     return out;
   }, [matches, selectedSport, selectedLeague]);
 
+  const liveMatches = useMemo(() => filteredMatches.filter(isMatchLive), [filteredMatches]);
+
+  const upcomingMatches = useMemo(() =>
+    filteredMatches
+      .filter((m) => !isMatchLive(m))
+      .sort((a, b) => {
+        if (a.date == null && b.date == null) return 0;
+        if (a.date == null) return 1;
+        if (b.date == null) return -1;
+        const aMs = a.date > 1e12 ? a.date : a.date * 1000;
+        const bMs = b.date > 1e12 ? b.date : b.date * 1000;
+        return aMs - bMs;
+      }),
+    [filteredMatches]);
+
   // Reset filters whose option disappeared after a data refresh.
   useEffect(() => {
     if (selectedSport && !sportCounts.some(([s]) => s === selectedSport)) {
@@ -245,32 +280,57 @@ export default function SportPage() {
               {matchCategory(selected)}
             </span>
             <span style={{ fontSize: 14, fontWeight: 600, flex: 1 }}>{matchTitle(selected)}</span>
-            <div style={{ display: "flex", gap: 6 }}>
-              {[1, 2, 3].map((i) => (
-                <button
-                  key={i}
-                  onClick={() => setHdIndex(i)}
-                  style={{
-                    background: hdIndex === i ? "#e50914" : "#1a1a1a",
-                    border: `1px solid ${hdIndex === i ? "#e50914" : "#333"}`,
-                    color: "#fff",
-                    padding: "5px 12px",
-                    borderRadius: 6,
-                    cursor: "pointer",
-                    fontSize: 13,
-                    fontWeight: hdIndex === i ? 600 : 400,
-                  }}
-                >
-                  HD {i}
-                </button>
-              ))}
-            </div>
+            {isMatchLive(selected) && (
+              <div style={{ display: "flex", gap: 6 }}>
+                {[1, 2, 3].map((i) => (
+                  <button
+                    key={i}
+                    onClick={() => setHdIndex(i)}
+                    style={{
+                      background: hdIndex === i ? "#e50914" : "#1a1a1a",
+                      border: `1px solid ${hdIndex === i ? "#e50914" : "#333"}`,
+                      color: "#fff",
+                      padding: "5px 12px",
+                      borderRadius: 6,
+                      cursor: "pointer",
+                      fontSize: 13,
+                      fontWeight: hdIndex === i ? 600 : 400,
+                    }}
+                  >
+                    HD {i}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-          <EmbedPlayer
-            key={`${selected.id}-${hdIndex}`}
-            title={matchTitle(selected)}
-            sources={embedSources}
-          />
+          {isMatchLive(selected) ? (
+            <EmbedPlayer
+              key={`${selected.id}-${hdIndex}`}
+              title={matchTitle(selected)}
+              sources={embedSources}
+            />
+          ) : (
+            <div style={{
+              background: "#111",
+              border: "1px solid #2a2a2a",
+              borderRadius: 8,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              minHeight: 240,
+              gap: 10,
+              color: "#aaa",
+            }}>
+              <span style={{ fontSize: 28 }}>🕐</span>
+              <span style={{ fontSize: 15, fontWeight: 500, color: "#fff" }}>Match not started yet</span>
+              {selected.date && (
+                <span style={{ fontSize: 13 }}>
+                  Starts {formatMatchTime(selected.date)}
+                </span>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -330,66 +390,95 @@ export default function SportPage() {
       {/* ── Match grid ── */}
       {!loading && matches.length > 0 && (
         <>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-            <h2 style={{ fontSize: 16, fontWeight: 600 }}>Live Now</h2>
-            <span style={{ fontSize: 13, color: "#888" }}>
-              {filteredMatches.length}
-              {filteredMatches.length !== matches.length ? ` of ${matches.length}` : ""} matches
-            </span>
-          </div>
           {filteredMatches.length === 0 ? (
             <div style={{ color: "#aaa", padding: "24px 0", textAlign: "center", fontSize: 14 }}>
               No matches for the selected filters.
             </div>
           ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 12 }}>
-            {filteredMatches.map((m) => {
-              const active = selected?.id === m.id;
-              return (
-                <button
-                  key={m.id}
-                  onClick={() => {
-                    setSelected(m);
-                    setHdIndex(1);
-                    window.scrollTo({ top: 0, behavior: "smooth" });
-                  }}
-                  style={{
-                    background: active ? "#1e0a0c" : "#141414",
-                    border: `1px solid ${active ? "#e50914" : "#222"}`,
-                    borderRadius: 8,
-                    padding: "12px 14px",
-                    textAlign: "left",
-                    cursor: "pointer",
-                    color: "#fff",
-                    transition: "border-color 0.15s, background 0.15s",
-                    width: "100%",
-                  }}
-                >
-                  <div style={{ display: "flex", gap: 6, marginBottom: 7 }}>
-                    <span style={{ fontSize: 10, background: "#e50914", color: "#fff", borderRadius: 3, padding: "2px 6px", fontWeight: 700, letterSpacing: 0.5 }}>
-                      LIVE
-                    </span>
-                    <span style={{ fontSize: 10, color: "#888", background: "#222", borderRadius: 3, padding: "2px 6px", textTransform: "capitalize" }}>
-                      {matchCategory(m)}
-                    </span>
+            <>
+              {liveMatches.length > 0 && (
+                <>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+                    <h2 style={{ fontSize: 16, fontWeight: 600 }}>Live Now</h2>
+                    <span style={{ fontSize: 13, color: "#888" }}>{liveMatches.length} matches</span>
                   </div>
-                  <div style={{ fontSize: 13, fontWeight: 500, lineHeight: 1.4, wordBreak: "break-word" }}>
-                    {matchTitle(m)}
+                  <MatchGrid matches={liveMatches} selected={selected} onSelect={(m) => { setSelected(m); setHdIndex(1); window.scrollTo({ top: 0, behavior: "smooth" }); }} />
+                </>
+              )}
+              {upcomingMatches.length > 0 && (
+                <div style={{ marginTop: liveMatches.length > 0 ? 32 : 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+                    <h2 style={{ fontSize: 16, fontWeight: 600 }}>Upcoming</h2>
+                    <span style={{ fontSize: 13, color: "#888" }}>{upcomingMatches.length} matches</span>
                   </div>
-                  {m.teams?.home && m.teams?.away && (
-                    <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, fontSize: 11, color: "#666" }}>
-                      <span style={{ color: "#999" }}>{m.teams.home.name}</span>
-                      <span>vs</span>
-                      <span style={{ color: "#999" }}>{m.teams.away.name}</span>
-                    </div>
-                  )}
-                </button>
-              );
-            })}
-          </div>
+                  <MatchGrid matches={upcomingMatches} selected={selected} onSelect={(m) => { setSelected(m); setHdIndex(1); window.scrollTo({ top: 0, behavior: "smooth" }); }} />
+                </div>
+              )}
+            </>
           )}
         </>
       )}
+    </div>
+  );
+}
+
+function MatchGrid({
+  matches,
+  selected,
+  onSelect,
+}: {
+  matches: Match[];
+  selected: Match | null;
+  onSelect: (m: Match) => void;
+}) {
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 12 }}>
+      {matches.map((m) => {
+        const active = selected?.id === m.id;
+        const live = isMatchLive(m);
+        return (
+          <button
+            key={m.id}
+            onClick={() => onSelect(m)}
+            style={{
+              background: active ? (live ? "#1e0a0c" : "#0d1a0d") : "#141414",
+              border: `1px solid ${active ? (live ? "#e50914" : "#4caf50") : "#222"}`,
+              borderRadius: 8,
+              padding: "12px 14px",
+              textAlign: "left",
+              cursor: "pointer",
+              color: "#fff",
+              transition: "border-color 0.15s, background 0.15s",
+              width: "100%",
+            }}
+          >
+            <div style={{ display: "flex", gap: 6, marginBottom: 7 }}>
+              {live ? (
+                <span style={{ fontSize: 10, background: "#e50914", color: "#fff", borderRadius: 3, padding: "2px 6px", fontWeight: 700, letterSpacing: 0.5 }}>
+                  LIVE
+                </span>
+              ) : (
+                <span style={{ fontSize: 10, background: "#1a2e1a", color: "#4caf50", borderRadius: 3, padding: "2px 6px", fontWeight: 600 }}>
+                  {m.date ? formatMatchTime(m.date) : "UPCOMING"}
+                </span>
+              )}
+              <span style={{ fontSize: 10, color: "#888", background: "#222", borderRadius: 3, padding: "2px 6px", textTransform: "capitalize" }}>
+                {matchCategory(m)}
+              </span>
+            </div>
+            <div style={{ fontSize: 13, fontWeight: 500, lineHeight: 1.4, wordBreak: "break-word" }}>
+              {matchTitle(m)}
+            </div>
+            {m.teams?.home && m.teams?.away && (
+              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, fontSize: 11, color: "#666" }}>
+                <span style={{ color: "#999" }}>{m.teams.home.name}</span>
+                <span>vs</span>
+                <span style={{ color: "#999" }}>{m.teams.away.name}</span>
+              </div>
+            )}
+          </button>
+        );
+      })}
     </div>
   );
 }
