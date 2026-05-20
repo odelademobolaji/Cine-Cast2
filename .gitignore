@@ -1,0 +1,20 @@
+# Build artifacts
+frontend/.next/
+frontend/out/
+frontend/build/
+
+# Dependencies
+frontend/node_modules/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Environment
+.env
+.env.local
+
+# Logs
+*.log
