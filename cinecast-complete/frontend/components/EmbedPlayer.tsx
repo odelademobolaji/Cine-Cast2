@@ -88,7 +88,7 @@ export default function EmbedPlayer({ title, sources }: EmbedPlayerProps) {
           src={activeSource.url}
           title={`${title} - ${activeSource.name}`}
           allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
-          referrerPolicy="origin"
+          referrerPolicy="no-referrer"
           allowFullScreen
         />
       )}

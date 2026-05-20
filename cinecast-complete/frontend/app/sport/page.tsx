@@ -50,9 +50,15 @@ function matchCategory(m: Match): string {
   return m.category || m.sport || "Sport";
 }
 
+// "admin" is a private streamed.su internal source not served by embedme.top.
+const BLOCKED_SOURCES = new Set(["admin"]);
+
 function matchSources(m: Match): string[] {
   const src = m.sources || m.streams;
-  if (src && src.length > 0) return src.map((s) => s.source).filter(Boolean);
+  if (src && src.length > 0) {
+    const filtered = src.map((s) => s.source).filter((s) => s && !BLOCKED_SOURCES.has(s));
+    if (filtered.length > 0) return filtered;
+  }
   return STREAM_SOURCES;
 }
 
