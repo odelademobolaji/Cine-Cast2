@@ -2,6 +2,8 @@
 frontend/.next/
 frontend/out/
 frontend/build/
+frontend/tsconfig.tsbuildinfo
+*.tsbuildinfo
 
 # Dependencies
 frontend/node_modules/
