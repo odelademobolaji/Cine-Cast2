@@ -62,12 +62,67 @@ function matchSources(m: Match): string[] {
   return STREAM_SOURCES;
 }
 
+function matchSport(m: Match): string {
+  return (m.category || m.sport || "other").toLowerCase();
+}
+
+function titleCase(s: string): string {
+  return s.split(/[\s-]+/).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+}
+
+// streamed.su match objects don't always carry an explicit league field, so we
+// also fall back to a regex sweep over the title/id for well-known leagues.
+const LEAGUE_PATTERNS: [RegExp, string][] = [
+  [/\bnba\b/i,                 "NBA"],
+  [/\bnfl\b/i,                 "NFL"],
+  [/\bnhl\b/i,                 "NHL"],
+  [/\bmlb\b/i,                 "MLB"],
+  [/\bmls\b/i,                 "MLS"],
+  [/\bncaa\b/i,                "NCAA"],
+  [/\bwnba\b/i,                "WNBA"],
+  [/\beuroleague\b/i,          "EuroLeague"],
+  [/\bpremier[\s-]?league\b/i, "Premier League"],
+  [/\bchampionship\b/i,        "Championship"],
+  [/\bla[\s-]?liga\b/i,        "La Liga"],
+  [/\bbundesliga\b/i,          "Bundesliga"],
+  [/\bserie[\s-]?a\b/i,        "Serie A"],
+  [/\bligue[\s-]?1\b/i,        "Ligue 1"],
+  [/\beredivisie\b/i,          "Eredivisie"],
+  [/\bchampions[\s-]?league\b/i, "Champions League"],
+  [/\beuropa[\s-]?league\b/i,  "Europa League"],
+  [/\bconference[\s-]?league\b/i, "Conference League"],
+  [/\bworld[\s-]?cup\b/i,      "World Cup"],
+  [/\beuros?\b/i,              "Euros"],
+  [/\bcopa[\s-]?america\b/i,   "Copa América"],
+  [/\bsuper[\s-]?bowl\b/i,     "Super Bowl"],
+  [/\bufc\b/i,                 "UFC"],
+  [/\bf1\b|formula[\s-]?1/i,   "Formula 1"],
+  [/\bmoto[\s-]?gp\b/i,        "MotoGP"],
+  [/\batp\b/i,                 "ATP"],
+  [/\bwta\b/i,                 "WTA"],
+];
+
+function matchLeague(m: Match): string | null {
+  const any_m = m as unknown as Record<string, unknown>;
+  for (const field of ["league", "competition", "tournament", "event"] as const) {
+    const v = any_m[field];
+    if (typeof v === "string" && v.trim()) return v.trim();
+  }
+  const haystack = `${m.title || ""} ${m.name || ""} ${m.id || ""}`;
+  for (const [pattern, label] of LEAGUE_PATTERNS) {
+    if (pattern.test(haystack)) return label;
+  }
+  return null;
+}
+
 export default function SportPage() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Match | null>(null);
   const [hdIndex, setHdIndex] = useState(1);
+  const [selectedSport, setSelectedSport] = useState<string | null>(null);
+  const [selectedLeague, setSelectedLeague] = useState<string | null>(null);
 
   const fetchMatches = async () => {
     setLoading(true);
@@ -98,6 +153,53 @@ export default function SportPage() {
       url: `https://embedme.top/embed/${src}/${selected.id}/${hdIndex}`,
     }));
   }, [selected, hdIndex]);
+
+  // Sport pills (sorted by descending match count).
+  const sportCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const m of matches) {
+      const s = matchSport(m);
+      counts.set(s, (counts.get(s) || 0) + 1);
+    }
+    return Array.from(counts.entries()).sort((a, b) =>
+      b[1] !== a[1] ? b[1] - a[1] : a[0].localeCompare(b[0])
+    );
+  }, [matches]);
+
+  // League pills are scoped to the currently selected sport (if any).
+  const leagueCounts = useMemo(() => {
+    const scope = selectedSport
+      ? matches.filter((m) => matchSport(m) === selectedSport)
+      : matches;
+    const counts = new Map<string, number>();
+    for (const m of scope) {
+      const l = matchLeague(m);
+      if (l) counts.set(l, (counts.get(l) || 0) + 1);
+    }
+    return Array.from(counts.entries()).sort((a, b) =>
+      b[1] !== a[1] ? b[1] - a[1] : a[0].localeCompare(b[0])
+    );
+  }, [matches, selectedSport]);
+
+  const filteredMatches = useMemo(() => {
+    let out = matches;
+    if (selectedSport) out = out.filter((m) => matchSport(m) === selectedSport);
+    if (selectedLeague) out = out.filter((m) => matchLeague(m) === selectedLeague);
+    return out;
+  }, [matches, selectedSport, selectedLeague]);
+
+  // Reset filters whose option disappeared after a data refresh.
+  useEffect(() => {
+    if (selectedSport && !sportCounts.some(([s]) => s === selectedSport)) {
+      setSelectedSport(null);
+      setSelectedLeague(null);
+    }
+  }, [sportCounts, selectedSport]);
+  useEffect(() => {
+    if (selectedLeague && !leagueCounts.some(([l]) => l === selectedLeague)) {
+      setSelectedLeague(null);
+    }
+  }, [leagueCounts, selectedLeague]);
 
   return (
     <div className="browse-page">
@@ -187,15 +289,49 @@ export default function SportPage() {
         </div>
       )}
 
+      {/* ── Filters ── */}
+      {!loading && matches.length > 0 && sportCounts.length > 0 && (
+        <div style={{ marginBottom: 18 }}>
+          <FilterRow
+            label="Sport"
+            options={[["All", matches.length], ...sportCounts.map(([k, v]) => [titleCase(k), v] as [string, number])]}
+            selected={selectedSport ? titleCase(selectedSport) : "All"}
+            onSelect={(name) => {
+              setSelectedSport(name === "All" ? null : name.toLowerCase());
+              setSelectedLeague(null);
+            }}
+          />
+          {leagueCounts.length > 0 && (
+            <FilterRow
+              label="League"
+              options={[
+                ["All", selectedSport ? matches.filter((m) => matchSport(m) === selectedSport).length : matches.length],
+                ...leagueCounts,
+              ]}
+              selected={selectedLeague || "All"}
+              onSelect={(name) => setSelectedLeague(name === "All" ? null : name)}
+            />
+          )}
+        </div>
+      )}
+
       {/* ── Match grid ── */}
       {!loading && matches.length > 0 && (
         <>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
             <h2 style={{ fontSize: 16, fontWeight: 600 }}>Live Now</h2>
-            <span style={{ fontSize: 13, color: "#888" }}>{matches.length} matches</span>
+            <span style={{ fontSize: 13, color: "#888" }}>
+              {filteredMatches.length}
+              {filteredMatches.length !== matches.length ? ` of ${matches.length}` : ""} matches
+            </span>
           </div>
+          {filteredMatches.length === 0 ? (
+            <div style={{ color: "#aaa", padding: "24px 0", textAlign: "center", fontSize: 14 }}>
+              No matches for the selected filters.
+            </div>
+          ) : (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 12 }}>
-            {matches.map((m) => {
+            {filteredMatches.map((m) => {
               const active = selected?.id === m.id;
               return (
                 <button
@@ -239,8 +375,54 @@ export default function SportPage() {
               );
             })}
           </div>
+          )}
         </>
       )}
+    </div>
+  );
+}
+
+function FilterRow({
+  label,
+  options,
+  selected,
+  onSelect,
+}: {
+  label: string;
+  options: [string, number][];
+  selected: string;
+  onSelect: (name: string) => void;
+}) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
+      <span style={{ fontSize: 12, color: "#888", minWidth: 50, textTransform: "uppercase", letterSpacing: 0.5 }}>
+        {label}
+      </span>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+        {options.map(([name, count]) => {
+          const active = selected === name;
+          return (
+            <button
+              key={name}
+              onClick={() => onSelect(name)}
+              style={{
+                background: active ? "#e50914" : "#1a1a1a",
+                border: `1px solid ${active ? "#e50914" : "#2a2a2a"}`,
+                color: "#fff",
+                padding: "5px 11px",
+                borderRadius: 999,
+                cursor: "pointer",
+                fontSize: 12,
+                fontWeight: active ? 600 : 400,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {name}
+              <span style={{ opacity: 0.6, marginLeft: 6 }}>{count}</span>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
