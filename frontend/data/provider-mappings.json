@@ -1,0 +1,20 @@
+{
+  "movies": {
+    "1439930": {
+      "azmoviesSlug": "the-punisher-one-last-kill-2026",
+      "azmoviesEmbedUrl": "",
+      "doodstreamEmbedUrl": "",
+      "doodstreamFilecode": "",
+      "doodstreamTld": "so",
+      "byseFilecode": ""
+    }
+  },
+  "tvEpisodes": {
+    "308014:1:1": {
+      "doodstreamEmbedUrl": "",
+      "doodstreamFilecode": "",
+      "doodstreamTld": "so",
+      "byseFilecode": ""
+    }
+  }
+}
