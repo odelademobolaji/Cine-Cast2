@@ -27,7 +27,6 @@ export default async function TvPlayerPage({ params, searchParams }: TvPlayerPag
     { name: "VidLink", url: `https://vidlink.pro/tv/${tvId}/${season}/${episode}` },
     { name: "VidSrc", url: `https://vidsrc.to/embed/tv/${tvId}/${season}/${episode}` },
     { name: "2Embed", url: `https://www.2embed.cc/embedtv/${tvId}&s=${season}&e=${episode}` },
-    { name: "Sport", url: "https://lb10.strmd.top/secure/.../stream/.../mono.m3u8" },
     ...(doodstreamUrl ? [{ name: "Doodstream", url: doodstreamUrl }] : []),
     ...(byseUrl ? [{ name: "Byse", url: byseUrl }] : []),
   ];

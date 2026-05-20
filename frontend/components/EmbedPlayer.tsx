@@ -113,11 +113,17 @@ export default function EmbedPlayer({ title, sources }: EmbedPlayerProps) {
             allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
             referrerPolicy="no-referrer"
             allowFullScreen
-            // allow-same-origin is intentionally absent: combining it with
-            // allow-scripts makes the sandbox a no-op per the HTML spec.
-            // Our /api/sport/embed proxy + injected XHR interceptor handle
-            // all legitimate cross-origin requests server-side instead.
-            sandbox="allow-scripts allow-pointer-lock allow-presentation allow-orientation-lock"
+            // Our /api/sport/embed proxy serves a sanitised page from our own
+            // origin, where popups are blocked by an injected interceptor —
+            // strict sandbox (no allow-same-origin) is safe and effective.
+            // External embeds (vidlink.pro, vidsrc.to, embedme.top direct…)
+            // need allow-same-origin because their player JS authenticates
+            // against their own CDN via cookies/localStorage on their origin.
+            sandbox={
+              activeSource.url.startsWith("/")
+                ? "allow-scripts allow-pointer-lock allow-presentation allow-orientation-lock"
+                : "allow-scripts allow-same-origin allow-pointer-lock allow-presentation allow-orientation-lock"
+            }
             onLoad={() => setLoadState("loaded")}
             onError={() => setLoadState("failed")}
           />

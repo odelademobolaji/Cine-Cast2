@@ -149,49 +149,64 @@ async function tryProvider(
   }
 }
 
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: { source: string; id: string; streamNo: string } },
-) {
-  const { source, id, streamNo } = params;
-
-  let result: { html: string; finalBase: string } | null = null;
-  for (const base of PROVIDERS) {
-    result = await tryProvider(base, source, id, streamNo);
-    if (result) break;
-  }
-
-  if (!result) {
-    return new NextResponse(
-      `<!doctype html><html><body style="background:#111;color:#aaa;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;flex-direction:column;gap:10px">
-        <div style="font-size:2em">📡</div>
-        <div style="font-size:15px;color:#fff;font-weight:600">No stream providers responded</div>
-        <div style="font-size:12px">Try refreshing or selecting a different source.</div>
-      </body></html>`,
-      { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } },
-    );
-  }
-
-  let { html, finalBase } = result;
-  html = rewriteUrls(html, finalBase);
-
-  // Inject interceptor as the very first thing in <head>
-  if (/<head[^>]*>/i.test(html)) {
-    html = html.replace(/<head([^>]*)>/i, `<head$1>${INTERCEPTOR}`);
-  } else {
-    html = INTERCEPTOR + html;
-  }
-
-  return new NextResponse(html, {
+function errorHtml(title: string, detail: string): NextResponse {
+  const body = `<!doctype html><html><body style="background:#111;color:#aaa;font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;flex-direction:column;gap:10px;text-align:center;padding:20px">
+    <div style="font-size:2em">📡</div>
+    <div style="font-size:15px;color:#fff;font-weight:600">${title}</div>
+    <div style="font-size:12px;max-width:380px">${detail}</div>
+  </body></html>`;
+  return new NextResponse(body, {
     status: 200,
     headers: {
       "Content-Type": "text/html; charset=utf-8",
       "Cache-Control": "no-store",
-      "X-Frame-Options": "SAMEORIGIN",
-      // Permissive CSP: allows our injected inline script + all origins for
-      // media/scripts (the injected XHR proxy enforces what actually loads).
-      "Content-Security-Policy":
-        "default-src * blob: data:; script-src * 'unsafe-inline' 'unsafe-eval'; style-src * 'unsafe-inline'; connect-src *;",
     },
   });
+}
+
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: { source: string; id: string; streamNo: string } },
+) {
+  try {
+    const { source, id, streamNo } = params;
+
+    let result: { html: string; finalBase: string } | null = null;
+    for (const base of PROVIDERS) {
+      result = await tryProvider(base, source, id, streamNo);
+      if (result) break;
+    }
+
+    if (!result) {
+      return errorHtml(
+        "No stream providers responded",
+        "All upstream embed providers timed out or returned an error. Try refreshing or selecting a different source.",
+      );
+    }
+
+    let { html, finalBase } = result;
+    html = rewriteUrls(html, finalBase);
+
+    if (/<head[^>]*>/i.test(html)) {
+      html = html.replace(/<head([^>]*)>/i, `<head$1>${INTERCEPTOR}`);
+    } else {
+      html = INTERCEPTOR + html;
+    }
+
+    return new NextResponse(html, {
+      status: 200,
+      headers: {
+        "Content-Type": "text/html; charset=utf-8",
+        "Cache-Control": "no-store",
+        "X-Frame-Options": "SAMEORIGIN",
+        "Content-Security-Policy":
+          "default-src * blob: data:; script-src * 'unsafe-inline' 'unsafe-eval'; style-src * 'unsafe-inline'; connect-src *;",
+      },
+    });
+  } catch (e) {
+    return errorHtml(
+      "Embed proxy error",
+      (e instanceof Error ? e.message : String(e)).slice(0, 300),
+    );
+  }
 }

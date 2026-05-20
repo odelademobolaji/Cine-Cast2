@@ -143,7 +143,6 @@ export default function SportPage() {
   const [hdIndex, setHdIndex] = useState(1);
   const [selectedSport, setSelectedSport] = useState<string | null>(null);
   const [selectedLeague, setSelectedLeague] = useState<string | null>(null);
-  const [embedMode, setEmbedMode] = useState<"safe" | "direct">("safe");
 
   const fetchMatches = async () => {
     setLoading(true);
@@ -169,15 +168,18 @@ export default function SportPage() {
 
   const embedSources = useMemo((): EmbedSource[] => {
     if (!selected) return [];
+    // All sport streams go through our /api/sport/embed proxy, which fetches
+    // the embed HTML server-side, rewrites every URL through /api/sport/proxy,
+    // and injects an XHR/fetch interceptor so the browser never contacts the
+    // streaming provider's domain directly. This is what bypasses AV blocks
+    // on embedme.top and lets the strict iframe sandbox actually block popups.
     const buildUrl = (src: string, streamId: string) =>
-      embedMode === "safe"
-        ? `/api/sport/embed/${src}/${streamId}/${hdIndex}`
-        : `https://embedme.top/embed/${src}/${streamId}/${hdIndex}`;
+      `/api/sport/embed/${src}/${streamId}/${hdIndex}`;
 
-    // Each source from streamed.su has its own stream `id` which is what
-    // embedme.top needs. Using the match's top-level `id` gives a 404.
+    // Each source from streamed.su has its own stream `id`. Using the match's
+    // top-level `id` gives a 404 from the embed provider.
     const rawSources = (selected.sources || selected.streams || []).filter(
-      (s) => s.source && !BLOCKED_SOURCES.has(s.source)
+      (s) => s.source && !BLOCKED_SOURCES.has(s.source),
     );
     if (rawSources.length > 0) {
       return rawSources.map((s) => ({
@@ -185,12 +187,11 @@ export default function SportPage() {
         url: buildUrl(s.source, s.id || selected.id),
       }));
     }
-    // Fallback when no source list is returned by the API.
     return STREAM_SOURCES.map((src) => ({
       name: src.charAt(0).toUpperCase() + src.slice(1),
       url: buildUrl(src, selected.id),
     }));
-  }, [selected, hdIndex, embedMode]);
+  }, [selected, hdIndex]);
 
   // Sport pills (sorted by descending match count).
   const sportCounts = useMemo(() => {
@@ -287,53 +288,31 @@ export default function SportPage() {
             </span>
             <span style={{ fontSize: 14, fontWeight: 600, flex: 1 }}>{matchTitle(selected)}</span>
             {isMatchLive(selected) && (
-              <>
-                <div style={{ display: "flex", gap: 0, border: "1px solid #333", borderRadius: 6, overflow: "hidden" }} title="Switch player mode">
-                  {(["safe", "direct"] as const).map((m) => (
-                    <button
-                      key={m}
-                      onClick={() => setEmbedMode(m)}
-                      style={{
-                        background: embedMode === m ? "#1e1e1e" : "#0a0a0a",
-                        border: "none",
-                        borderRight: m === "safe" ? "1px solid #333" : "none",
-                        color: embedMode === m ? "#fff" : "#666",
-                        padding: "5px 10px",
-                        cursor: "pointer",
-                        fontSize: 12,
-                        fontWeight: embedMode === m ? 600 : 400,
-                      }}
-                    >
-                      {m === "safe" ? "Safe" : "Direct"}
-                    </button>
-                  ))}
-                </div>
-                <div style={{ display: "flex", gap: 6 }}>
-                  {[1, 2, 3].map((i) => (
-                    <button
-                      key={i}
-                      onClick={() => setHdIndex(i)}
-                      style={{
-                        background: hdIndex === i ? "#e50914" : "#1a1a1a",
-                        border: `1px solid ${hdIndex === i ? "#e50914" : "#333"}`,
-                        color: "#fff",
-                        padding: "5px 12px",
-                        borderRadius: 6,
-                        cursor: "pointer",
-                        fontSize: 13,
-                        fontWeight: hdIndex === i ? 600 : 400,
-                      }}
-                    >
-                      HD {i}
-                    </button>
-                  ))}
-                </div>
-              </>
+              <div style={{ display: "flex", gap: 6 }}>
+                {[1, 2, 3].map((i) => (
+                  <button
+                    key={i}
+                    onClick={() => setHdIndex(i)}
+                    style={{
+                      background: hdIndex === i ? "#e50914" : "#1a1a1a",
+                      border: `1px solid ${hdIndex === i ? "#e50914" : "#333"}`,
+                      color: "#fff",
+                      padding: "5px 12px",
+                      borderRadius: 6,
+                      cursor: "pointer",
+                      fontSize: 13,
+                      fontWeight: hdIndex === i ? 600 : 400,
+                    }}
+                  >
+                    HD {i}
+                  </button>
+                ))}
+              </div>
             )}
           </div>
           {isMatchLive(selected) ? (
             <EmbedPlayer
-              key={`${selected.id}-${hdIndex}-${embedMode}`}
+              key={`${selected.id}-${hdIndex}`}
               title={matchTitle(selected)}
               sources={embedSources}
             />
