@@ -90,6 +90,9 @@ export default function EmbedPlayer({ title, sources }: EmbedPlayerProps) {
           allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
           referrerPolicy="no-referrer"
           allowFullScreen
+          // allow-popups intentionally omitted — blocks all popup ads.
+          // allow-top-navigation omitted — prevents redirect-hijack of the parent page.
+          sandbox="allow-scripts allow-same-origin allow-forms allow-pointer-lock allow-orientation-lock allow-presentation"
         />
       )}
     </div>

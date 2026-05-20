@@ -148,7 +148,19 @@ export default function SportPage() {
 
   const embedSources = useMemo((): EmbedSource[] => {
     if (!selected) return [];
-    return matchSources(selected).map((src) => ({
+    // Each source from streamed.su has its own stream `id` which is what
+    // embedme.top needs. Using the match's top-level `id` gives a 404.
+    const rawSources = (selected.sources || selected.streams || []).filter(
+      (s) => s.source && !BLOCKED_SOURCES.has(s.source)
+    );
+    if (rawSources.length > 0) {
+      return rawSources.map((s) => ({
+        name: s.source.charAt(0).toUpperCase() + s.source.slice(1),
+        url: `https://embedme.top/embed/${s.source}/${s.id || selected.id}/${hdIndex}`,
+      }));
+    }
+    // Fallback when no source list is returned by the API.
+    return STREAM_SOURCES.map((src) => ({
       name: src.charAt(0).toUpperCase() + src.slice(1),
       url: `https://embedme.top/embed/${src}/${selected.id}/${hdIndex}`,
     }));
