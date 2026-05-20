@@ -4,9 +4,10 @@ import { useEffect, useMemo, useState } from "react";
 import EmbedPlayer, { EmbedSource } from "@/components/EmbedPlayer";
 
 const STREAM_SOURCES = ["alpha", "bravo", "charlie", "delta", "echo", "foxtrot"];
-// Relative URL so the Next.js rewrite proxy forwards to the backend.
-// NEXT_PUBLIC_API_URL can override for standalone deployments.
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
+// Hardcoded relative URL — always served by the Next.js API route at
+// app/api/sport/matches/route.ts. We intentionally ignore NEXT_PUBLIC_API_URL
+// here so the Sport tab does not depend on the Python backend being running.
+const SPORT_MATCHES_URL = "/api/sport/matches";
 
 interface MatchSource {
   source: string;
@@ -66,7 +67,7 @@ export default function SportPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/api/sport/matches`);
+      const res = await fetch(SPORT_MATCHES_URL, { cache: "no-store" });
       if (!res.ok) throw new Error(`Server responded ${res.status}`);
       const data = await res.json();
       const arr: Match[] = Array.isArray(data)
