@@ -165,12 +165,17 @@ function errorHtml(title: string, detail: string): NextResponse {
   });
 }
 
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: { source: string; id: string; streamNo: string } },
-) {
+export async function GET(req: NextRequest) {
   try {
-    const { source, id, streamNo } = params;
+    const source = req.nextUrl.searchParams.get("source") || "";
+    const id = req.nextUrl.searchParams.get("id") || "";
+    const streamNo = req.nextUrl.searchParams.get("no") || "1";
+    if (!source || !id) {
+      return errorHtml(
+        "Invalid stream URL",
+        "Expected /api/sport/embed?source=&id=&no=.",
+      );
+    }
 
     let result: { html: string; finalBase: string } | null = null;
     for (const base of PROVIDERS) {

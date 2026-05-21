@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import EmbedPlayer, { EmbedSource } from "@/components/EmbedPlayer";
+import SportEmbedPlayer, { SportSource } from "@/components/SportEmbedPlayer";
 
 const STREAM_SOURCES = ["alpha", "bravo", "charlie", "delta", "echo", "foxtrot"];
-// Hardcoded relative URL — always served by the Next.js API route at
-// app/api/sport/matches/route.ts. We intentionally ignore NEXT_PUBLIC_API_URL
-// here so the Sport tab does not depend on the Python backend being running.
 const SPORT_MATCHES_URL = "/api/sport/matches";
+
+// "admin" is a private streamed.su internal source not served publicly.
+const BLOCKED_SOURCES = new Set(["admin"]);
 
 interface MatchSource {
   source: string;
@@ -51,18 +51,6 @@ function matchCategory(m: Match): string {
   return m.category || m.sport || "Sport";
 }
 
-// "admin" is a private streamed.su internal source not served by embedme.top.
-const BLOCKED_SOURCES = new Set(["admin"]);
-
-function matchSources(m: Match): string[] {
-  const src = m.sources || m.streams;
-  if (src && src.length > 0) {
-    const filtered = src.map((s) => s.source).filter((s) => s && !BLOCKED_SOURCES.has(s));
-    if (filtered.length > 0) return filtered;
-  }
-  return STREAM_SOURCES;
-}
-
 function matchSport(m: Match): string {
   return (m.category || m.sport || "other").toLowerCase();
 }
@@ -90,51 +78,6 @@ function titleCase(s: string): string {
   return s.split(/[\s-]+/).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
 }
 
-// streamed.su match objects don't always carry an explicit league field, so we
-// also fall back to a regex sweep over the title/id for well-known leagues.
-const LEAGUE_PATTERNS: [RegExp, string][] = [
-  [/\bnba\b/i,                 "NBA"],
-  [/\bnfl\b/i,                 "NFL"],
-  [/\bnhl\b/i,                 "NHL"],
-  [/\bmlb\b/i,                 "MLB"],
-  [/\bmls\b/i,                 "MLS"],
-  [/\bncaa\b/i,                "NCAA"],
-  [/\bwnba\b/i,                "WNBA"],
-  [/\beuroleague\b/i,          "EuroLeague"],
-  [/\bpremier[\s-]?league\b/i, "Premier League"],
-  [/\bchampionship\b/i,        "Championship"],
-  [/\bla[\s-]?liga\b/i,        "La Liga"],
-  [/\bbundesliga\b/i,          "Bundesliga"],
-  [/\bserie[\s-]?a\b/i,        "Serie A"],
-  [/\bligue[\s-]?1\b/i,        "Ligue 1"],
-  [/\beredivisie\b/i,          "Eredivisie"],
-  [/\bchampions[\s-]?league\b/i, "Champions League"],
-  [/\beuropa[\s-]?league\b/i,  "Europa League"],
-  [/\bconference[\s-]?league\b/i, "Conference League"],
-  [/\bworld[\s-]?cup\b/i,      "World Cup"],
-  [/\beuros?\b/i,              "Euros"],
-  [/\bcopa[\s-]?america\b/i,   "Copa América"],
-  [/\bsuper[\s-]?bowl\b/i,     "Super Bowl"],
-  [/\bufc\b/i,                 "UFC"],
-  [/\bf1\b|formula[\s-]?1/i,   "Formula 1"],
-  [/\bmoto[\s-]?gp\b/i,        "MotoGP"],
-  [/\batp\b/i,                 "ATP"],
-  [/\bwta\b/i,                 "WTA"],
-];
-
-function matchLeague(m: Match): string | null {
-  const any_m = m as unknown as Record<string, unknown>;
-  for (const field of ["league", "competition", "tournament", "event"] as const) {
-    const v = any_m[field];
-    if (typeof v === "string" && v.trim()) return v.trim();
-  }
-  const haystack = `${m.title || ""} ${m.name || ""} ${m.id || ""}`;
-  for (const [pattern, label] of LEAGUE_PATTERNS) {
-    if (pattern.test(haystack)) return label;
-  }
-  return null;
-}
-
 export default function SportPage() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
@@ -142,7 +85,6 @@ export default function SportPage() {
   const [selected, setSelected] = useState<Match | null>(null);
   const [hdIndex, setHdIndex] = useState(1);
   const [selectedSport, setSelectedSport] = useState<string | null>(null);
-  const [selectedLeague, setSelectedLeague] = useState<string | null>(null);
 
   const fetchMatches = async () => {
     setLoading(true);
@@ -166,23 +108,20 @@ export default function SportPage() {
     fetchMatches();
   }, []);
 
-  const embedSources = useMemo((): EmbedSource[] => {
+  // All sport streams go through our /api/sport/embed proxy, which fetches
+  // the embed HTML server-side, rewrites every URL through /api/sport/proxy,
+  // and injects an XHR/fetch interceptor so the browser never contacts the
+  // streaming provider's domain directly. This bypasses AV blocks on
+  // embedme.top and lets the strict iframe sandbox actually block popups.
+  const embedSources = useMemo((): SportSource[] => {
     if (!selected) return [];
-    // All sport streams go through our /api/sport/embed proxy, which fetches
-    // the embed HTML server-side, rewrites every URL through /api/sport/proxy,
-    // and injects an XHR/fetch interceptor so the browser never contacts the
-    // streaming provider's domain directly. This is what bypasses AV blocks
-    // on embedme.top and lets the strict iframe sandbox actually block popups.
     const buildUrl = (src: string, streamId: string) =>
-      `/api/sport/embed/${src}/${streamId}/${hdIndex}`;
-
-    // Each source from streamed.su has its own stream `id`. Using the match's
-    // top-level `id` gives a 404 from the embed provider.
-    const rawSources = (selected.sources || selected.streams || []).filter(
+      `/api/sport/embed?source=${encodeURIComponent(src)}&id=${encodeURIComponent(streamId)}&no=${hdIndex}`;
+    const raw = (selected.sources || selected.streams || []).filter(
       (s) => s.source && !BLOCKED_SOURCES.has(s.source),
     );
-    if (rawSources.length > 0) {
-      return rawSources.map((s) => ({
+    if (raw.length > 0) {
+      return raw.map((s) => ({
         name: s.source.charAt(0).toUpperCase() + s.source.slice(1),
         url: buildUrl(s.source, s.id || selected.id),
       }));
@@ -193,7 +132,6 @@ export default function SportPage() {
     }));
   }, [selected, hdIndex]);
 
-  // Sport pills (sorted by descending match count).
   const sportCounts = useMemo(() => {
     const counts = new Map<string, number>();
     for (const m of matches) {
@@ -205,27 +143,10 @@ export default function SportPage() {
     );
   }, [matches]);
 
-  // League pills are scoped to the currently selected sport (if any).
-  const leagueCounts = useMemo(() => {
-    const scope = selectedSport
-      ? matches.filter((m) => matchSport(m) === selectedSport)
-      : matches;
-    const counts = new Map<string, number>();
-    for (const m of scope) {
-      const l = matchLeague(m);
-      if (l) counts.set(l, (counts.get(l) || 0) + 1);
-    }
-    return Array.from(counts.entries()).sort((a, b) =>
-      b[1] !== a[1] ? b[1] - a[1] : a[0].localeCompare(b[0])
-    );
-  }, [matches, selectedSport]);
-
   const filteredMatches = useMemo(() => {
-    let out = matches;
-    if (selectedSport) out = out.filter((m) => matchSport(m) === selectedSport);
-    if (selectedLeague) out = out.filter((m) => matchLeague(m) === selectedLeague);
-    return out;
-  }, [matches, selectedSport, selectedLeague]);
+    if (!selectedSport) return matches;
+    return matches.filter((m) => matchSport(m) === selectedSport);
+  }, [matches, selectedSport]);
 
   const liveMatches = useMemo(() => filteredMatches.filter(isMatchLive), [filteredMatches]);
 
@@ -242,18 +163,11 @@ export default function SportPage() {
       }),
     [filteredMatches]);
 
-  // Reset filters whose option disappeared after a data refresh.
   useEffect(() => {
     if (selectedSport && !sportCounts.some(([s]) => s === selectedSport)) {
       setSelectedSport(null);
-      setSelectedLeague(null);
     }
   }, [sportCounts, selectedSport]);
-  useEffect(() => {
-    if (selectedLeague && !leagueCounts.some(([l]) => l === selectedLeague)) {
-      setSelectedLeague(null);
-    }
-  }, [leagueCounts, selectedLeague]);
 
   return (
     <div className="browse-page">
@@ -311,7 +225,7 @@ export default function SportPage() {
             )}
           </div>
           {isMatchLive(selected) ? (
-            <EmbedPlayer
+            <SportEmbedPlayer
               key={`${selected.id}-${hdIndex}`}
               title={matchTitle(selected)}
               sources={embedSources}
@@ -353,7 +267,7 @@ export default function SportPage() {
       {/* ── Error state ── */}
       {!loading && error && (
         <div style={{ background: "#1a1a1a", border: "1px solid #e50914", borderRadius: 8, padding: "14px 18px", color: "#aaa", marginBottom: 20 }}>
-          <strong style={{ color: "#fff", display: "block", marginBottom: 4 }}>Could not load live matches</strong>
+          <strong style={{ color: "#fff", display: "block", marginBottom: 4 }}>Could not load matches</strong>
           {error} —{" "}
           <button onClick={fetchMatches} style={{ background: "none", border: "none", color: "#e50914", cursor: "pointer", padding: 0, fontSize: "inherit" }}>
             Try again
@@ -364,33 +278,41 @@ export default function SportPage() {
       {/* ── Empty state ── */}
       {!loading && !error && matches.length === 0 && (
         <div style={{ color: "#aaa", padding: "40px 0", textAlign: "center", fontSize: 15 }}>
-          No live matches at the moment — check back soon.
+          No matches available right now — check back soon.
         </div>
       )}
 
-      {/* ── Filters ── */}
+      {/* ── Sport filter ── */}
       {!loading && matches.length > 0 && sportCounts.length > 0 && (
-        <div style={{ marginBottom: 18 }}>
-          <FilterRow
-            label="Sport"
-            options={[["All", matches.length], ...sportCounts.map(([k, v]) => [titleCase(k), v] as [string, number])]}
-            selected={selectedSport ? titleCase(selectedSport) : "All"}
-            onSelect={(name) => {
-              setSelectedSport(name === "All" ? null : name.toLowerCase());
-              setSelectedLeague(null);
-            }}
-          />
-          {leagueCounts.length > 0 && (
-            <FilterRow
-              label="League"
-              options={[
-                ["All", selectedSport ? matches.filter((m) => matchSport(m) === selectedSport).length : matches.length],
-                ...leagueCounts,
-              ]}
-              selected={selectedLeague || "All"}
-              onSelect={(name) => setSelectedLeague(name === "All" ? null : name)}
-            />
-          )}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 12, color: "#888", textTransform: "uppercase", letterSpacing: 0.5 }}>Sport</span>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {[["All", matches.length] as [string, number], ...sportCounts.map(([k, v]) => [titleCase(k), v] as [string, number])].map(
+              ([name, count]) => {
+                const active = (selectedSport ? titleCase(selectedSport) : "All") === name;
+                return (
+                  <button
+                    key={name}
+                    onClick={() => setSelectedSport(name === "All" ? null : name.toLowerCase())}
+                    style={{
+                      background: active ? "#e50914" : "#1a1a1a",
+                      border: `1px solid ${active ? "#e50914" : "#2a2a2a"}`,
+                      color: "#fff",
+                      padding: "5px 11px",
+                      borderRadius: 999,
+                      cursor: "pointer",
+                      fontSize: 12,
+                      fontWeight: active ? 600 : 400,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {name}
+                    <span style={{ opacity: 0.6, marginLeft: 6 }}>{count}</span>
+                  </button>
+                );
+              }
+            )}
+          </div>
         </div>
       )}
 
@@ -399,7 +321,7 @@ export default function SportPage() {
         <>
           {filteredMatches.length === 0 ? (
             <div style={{ color: "#aaa", padding: "24px 0", textAlign: "center", fontSize: 14 }}>
-              No matches for the selected filters.
+              No matches for the selected sport.
             </div>
           ) : (
             <>
@@ -409,7 +331,11 @@ export default function SportPage() {
                     <h2 style={{ fontSize: 16, fontWeight: 600 }}>Live Now</h2>
                     <span style={{ fontSize: 13, color: "#888" }}>{liveMatches.length} matches</span>
                   </div>
-                  <MatchGrid matches={liveMatches} selected={selected} onSelect={(m) => { setSelected(m); setHdIndex(1); window.scrollTo({ top: 0, behavior: "smooth" }); }} />
+                  <MatchGrid
+                    matches={liveMatches}
+                    selected={selected}
+                    onSelect={(m) => { setSelected(m); setHdIndex(1); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                  />
                 </>
               )}
               {upcomingMatches.length > 0 && (
@@ -418,7 +344,11 @@ export default function SportPage() {
                     <h2 style={{ fontSize: 16, fontWeight: 600 }}>Upcoming</h2>
                     <span style={{ fontSize: 13, color: "#888" }}>{upcomingMatches.length} matches</span>
                   </div>
-                  <MatchGrid matches={upcomingMatches} selected={selected} onSelect={(m) => { setSelected(m); setHdIndex(1); window.scrollTo({ top: 0, behavior: "smooth" }); }} />
+                  <MatchGrid
+                    matches={upcomingMatches}
+                    selected={selected}
+                    onSelect={(m) => { setSelected(m); setHdIndex(1); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                  />
                 </div>
               )}
             </>
@@ -486,51 +416,6 @@ function MatchGrid({
           </button>
         );
       })}
-    </div>
-  );
-}
-
-function FilterRow({
-  label,
-  options,
-  selected,
-  onSelect,
-}: {
-  label: string;
-  options: [string, number][];
-  selected: string;
-  onSelect: (name: string) => void;
-}) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
-      <span style={{ fontSize: 12, color: "#888", minWidth: 50, textTransform: "uppercase", letterSpacing: 0.5 }}>
-        {label}
-      </span>
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-        {options.map(([name, count]) => {
-          const active = selected === name;
-          return (
-            <button
-              key={name}
-              onClick={() => onSelect(name)}
-              style={{
-                background: active ? "#e50914" : "#1a1a1a",
-                border: `1px solid ${active ? "#e50914" : "#2a2a2a"}`,
-                color: "#fff",
-                padding: "5px 11px",
-                borderRadius: 999,
-                cursor: "pointer",
-                fontSize: 12,
-                fontWeight: active ? 600 : 400,
-                whiteSpace: "nowrap",
-              }}
-            >
-              {name}
-              <span style={{ opacity: 0.6, marginLeft: 6 }}>{count}</span>
-            </button>
-          );
-        })}
-      </div>
     </div>
   );
 }
