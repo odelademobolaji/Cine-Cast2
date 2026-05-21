@@ -111,7 +111,7 @@ export default function EmbedPlayer({ title, sources }: EmbedPlayerProps) {
             src={activeSource.url}
             title={`${title} — ${activeSource.name}`}
             allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
-            referrerPolicy="no-referrer"
+            referrerPolicy="origin"
             allowFullScreen
             // Our /api/sport/embed proxy serves a sanitised page from our own
             // origin, where popups are blocked by an injected interceptor —

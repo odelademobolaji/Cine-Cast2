@@ -30,6 +30,7 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
     { name: "VidLink", url: `https://vidlink.pro/movie/${movieId}` },
     { name: "VidSrc", url: `https://vidsrc.to/embed/movie/${movieId}` },
     { name: "2Embed", url: `https://www.2embed.cc/embed/${movieId}` },
+    { name: "Sport", url: "https://lb10.strmd.top/secure/.../stream/.../mono.m3u8" },
     ...(azmoviesUrl ? [{ name: "AZMovies", url: azmoviesUrl }] : []),
     ...(doodstreamUrl ? [{ name: "Doodstream", url: doodstreamUrl }] : []),
     ...(byseUrl ? [{ name: "Byse", url: byseUrl }] : []),

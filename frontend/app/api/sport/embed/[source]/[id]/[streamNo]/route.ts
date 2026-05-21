@@ -67,14 +67,15 @@ const INTERCEPTOR = `<script>
   function PX(){var x=new _X(),_o=x.open.bind(x);x.open=function(){var a=Array.prototype.slice.call(arguments);var u=a[1];if(typeof u==='string'){if(bad(u))u='about:blank';else u=px(u);a[1]=u;}return _o.apply(x,a);};return x;}
   PX.prototype=_X.prototype;
   window.XMLHttpRequest=PX;
-  // DOM observer: proxy src on video/source/img, strip _blank
+  // DOM observer: proxy src on video/source/img/iframe, strip _blank
   new MutationObserver(function(rs){rs.forEach(function(r){r.addedNodes.forEach(function(n){
     if(!n||n.nodeType!==1)return;
     var els=[n];
-    if(n.querySelectorAll)[].push.apply(els,n.querySelectorAll('video,source,img,a'));
+    if(n.querySelectorAll)[].push.apply(els,n.querySelectorAll('video,source,img,iframe,a'));
     els.forEach(function(el){
       var tg=el.tagName;
       if((tg==='VIDEO'||tg==='SOURCE'||tg==='IMG')&&el.src&&!/^blob:/i.test(el.src)){var ps=px(el.src);if(ps!==el.src)el.src=ps;}
+      if(tg==='IFRAME'&&el.src&&!/^blob:/i.test(el.src)){var pi=px(el.src);if(pi!==el.src)el.src=pi;}
       if(tg==='A'&&el.target&&el.target!=='_self')el.target='_self';
     });
   });});}).observe(document.documentElement,{childList:true,subtree:true});
