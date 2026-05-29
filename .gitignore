@@ -1,0 +1,10 @@
+node_modules/
+frontend/node_modules/
+frontend/.next/
+.next/
+dist/
+*.ipk
+__pycache__/
+*.pyc
+.env
+.env.local

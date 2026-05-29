@@ -1,0 +1,19 @@
+{
+  "id": "com.cinecast.tv",
+  "version": "1.0.0",
+  "vendor": "CineCast",
+  "type": "web",
+  "main": "index.html",
+  "title": "CineCast",
+  "icon": "icon.png",
+  "largeIcon": "largeIcon.png",
+  "iconColor": "#0a0a0a",
+  "splashBackground": "#0a0a0a",
+  "resolution": "1920x1080",
+  "transparentBackground": false,
+  "disableBackHistoryAPI": false,
+  "allowVideoCapture": false,
+  "allowAudioCapture": false,
+  "enableCameraAccess": false,
+  "closeOnExec": true
+}

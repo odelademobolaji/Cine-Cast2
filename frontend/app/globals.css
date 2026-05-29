@@ -1,0 +1,371 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  background: #0a0a0a; color: #fff;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  min-height: 100vh;
+}
+a { color: inherit; text-decoration: none; }
+
+.nav {
+  display: flex; align-items: center; gap: 32px;
+  padding: 16px 32px; background: #141414;
+  border-bottom: 1px solid #222;
+  position: sticky; top: 0; z-index: 10;
+}
+.logo { font-size: 20px; font-weight: 600; }
+.logo .dot { color: #e50914; }
+.nav-links { display: flex; gap: 20px; }
+.nav-links a { font-size: 14px; color: #aaa; transition: color 0.15s; }
+.nav-links a:hover { color: #fff; }
+
+.main { padding: 24px 32px; max-width: 1400px; margin: 0 auto; }
+
+.hero {
+  position: relative; border-radius: 12px; overflow: hidden;
+  min-height: 360px; margin-bottom: 32px;
+  display: flex; align-items: flex-end;
+  background: #1a1a1a;
+}
+.hero-bg { position: absolute; inset: 0; background-size: cover; background-position: center; opacity: 0.5; }
+.hero-bg::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to top, #0a0a0a, transparent 60%); }
+.hero-content { position: relative; padding: 32px; max-width: 60%; z-index: 1; }
+.hero-title { font-size: 32px; font-weight: 700; margin-bottom: 8px; }
+.hero-meta { font-size: 13px; color: #ccc; margin-bottom: 12px; }
+.hero-overview { font-size: 14px; line-height: 1.6; color: #ddd; margin-bottom: 16px; }
+.hero-cta {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: #fff; color: #000;
+  padding: 10px 20px; border-radius: 6px;
+  font-size: 14px; font-weight: 600; border: none; cursor: pointer;
+}
+
+.row { margin-bottom: 28px; }
+.row-title { font-size: 16px; font-weight: 600; margin-bottom: 12px; }
+.row-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+}
+.browse-page { padding-bottom: 32px; }
+.browse-header { margin-bottom: 22px; }
+.browse-header h1 { font-size: 30px; font-weight: 700; margin-bottom: 6px; }
+.browse-header p { color: #aaa; font-size: 14px; }
+.browse-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 16px;
+}
+.card { cursor: pointer; border-radius: 6px; overflow: hidden; background: #1a1a1a; transition: transform 0.15s; }
+.card:hover { transform: scale(1.05); }
+.poster { aspect-ratio: 2/3; background-size: cover; background-position: center; background-color: #222; }
+.card-title { padding: 8px 10px 2px; font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card-meta { padding: 0 10px 8px; font-size: 11px; color: #888; display: flex; justify-content: space-between; }
+
+.skeleton { aspect-ratio: 2/3; background: #1a1a1a; border-radius: 6px; animation: pulse 1.4s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+.back { display: inline-flex; align-items: center; gap: 6px; color: #aaa; margin-bottom: 16px; cursor: pointer; }
+.back:hover { color: #fff; }
+
+.detail-grid { display: grid; grid-template-columns: 240px 1fr; gap: 32px; }
+.detail-poster { aspect-ratio: 2/3; border-radius: 8px; background-size: cover; background-position: center; background-color: #1a1a1a; }
+.detail-title { font-size: 28px; font-weight: 700; margin-bottom: 12px; }
+.detail-tags { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+.tag { font-size: 12px; padding: 4px 10px; background: #222; border-radius: 4px; color: #ccc; }
+.tag.rating { background: #f5c518; color: #000; font-weight: 500; }
+.detail-overview { font-size: 15px; line-height: 1.7; color: #ddd; margin-bottom: 20px; }
+.actions { display: flex; gap: 10px; }
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 10px 18px; border-radius: 6px;
+  font-size: 14px; font-weight: 500; cursor: pointer; border: 1px solid #333;
+  background: #1a1a1a; color: #fff;
+}
+.btn.primary { background: #fff; color: #000; border-color: #fff; }
+
+/* ---- Video player ---- */
+.player-wrap { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
+.player-back {
+  display: inline-flex; align-items: center; gap: 8px;
+  color: #aaa; font-size: 14px; margin-bottom: 16px; cursor: pointer;
+}
+.player-back:hover { color: #fff; }
+.player-back svg { width: 16px; height: 16px; flex: 0 0 auto; }
+
+.vp-container {
+  position: relative; width: 100%; background: #000;
+  border-radius: 10px; overflow: hidden;
+  cursor: pointer;
+}
+.vp-video { width: 100%; aspect-ratio: 16 / 9; display: block; cursor: pointer; background: #000; }
+.embed-shell {
+  width: 100%;
+}
+
+.embed-player {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  display: block;
+  border: 0;
+  border-radius: 10px;
+  background: #000;
+}
+
+.embed-empty {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: #000;
+  color: #d6d6d6;
+}
+
+.embed-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.embed-source-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.embed-source-tab,
+.embed-next {
+  border: 1px solid #2a2a2a;
+  background: #151515;
+  color: #d8d8d8;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.embed-source-tab:hover,
+.embed-next:hover {
+  border-color: #525252;
+  color: #fff;
+}
+
+.embed-source-tab.is-active {
+  border-color: #e50914;
+  background: #2a0d10;
+  color: #fff;
+}
+
+.embed-source-tab.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+  border-style: dashed;
+}
+
+.embed-source-tab.is-disabled:hover {
+  border-color: #2a2a2a;
+  color: #d8d8d8;
+}
+
+@media (max-width: 640px) {
+  .embed-controls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .embed-next {
+    width: 100%;
+  }
+}
+
+.vp-overlay {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.6);
+}
+.vp-spinner {
+  width: 48px; height: 48px; border-radius: 50%;
+  border: 4px solid rgba(255,255,255,0.3); border-top-color: #fff;
+  animation: vp-spin 1s linear infinite;
+}
+@keyframes vp-spin { to { transform: rotate(360deg); } }
+
+.vp-error { flex-direction: column; background: rgba(0,0,0,0.85); color: #fff; padding: 24px; text-align: center; }
+.vp-error h3 { font-size: 18px; font-weight: 600; margin-bottom: 6px; }
+.vp-error p { font-size: 13px; color: #aaa; }
+.vp-error button {
+  margin-top: 16px; padding: 8px 16px; border: none; border-radius: 4px;
+  background: #e50914; color: #fff; font-size: 13px; cursor: pointer;
+}
+.vp-error button:hover { background: #c40812; }
+
+.vp-controls {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  padding: 14px 16px;
+  background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
+  transition: opacity 0.3s ease;
+}
+.vp-title { font-size: 13px; font-weight: 500; margin-bottom: 8px; color: #fff; }
+.vp-seek { width: 100%; height: 4px; cursor: pointer; margin-bottom: 10px; accent-color: #e50914; }
+.vp-row { display: flex; align-items: center; gap: 14px; }
+.vp-row button { background: none; border: none; color: #fff; cursor: pointer; display: inline-flex; padding: 0; transition: color 0.15s; }
+.vp-row button:hover { color: #e50914; }
+.vp-row button svg { width: 22px; height: 22px; }
+.vp-volume { width: 80px; height: 4px; cursor: pointer; accent-color: #e50914; }
+.vp-time { font-size: 12px; color: #fff; font-variant-numeric: tabular-nums; }
+.vp-spacer { flex: 1; }
+
+/* ============================================================
+   LG webOS TV — scaling, focus, and navigation adaptations
+   ============================================================ */
+
+/* 1 · Global TV scale (viewed from ~10 ft) */
+html {
+  font-size: 20px;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* 2 · D-pad focus ring — highly visible from across the room */
+:focus-visible {
+  outline: 4px solid #e50914;
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* 3 · Navigation bar */
+.nav {
+  padding: 22px 80px;
+  gap: 60px;
+}
+.logo { font-size: 30px; }
+.nav-links { gap: 36px; }
+.nav-links a { font-size: 22px; }
+.nav-links a:focus-visible {
+  color: #fff;
+  outline: 4px solid #e50914;
+  outline-offset: 6px;
+  border-radius: 4px;
+}
+
+/* 4 · Main content area with TV-safe inset */
+.main { padding: 48px 96px; max-width: 1760px; }
+
+/* 5 · Hero section */
+.hero { min-height: 520px; border-radius: 20px; margin-bottom: 56px; }
+.hero-content { padding: 48px; max-width: 55%; }
+.hero-title { font-size: 52px; margin-bottom: 14px; }
+.hero-meta { font-size: 20px; margin-bottom: 16px; }
+.hero-overview { font-size: 22px; line-height: 1.55; margin-bottom: 28px; }
+.hero-cta {
+  padding: 18px 36px; font-size: 22px; border-radius: 10px;
+  border: none;
+}
+.hero-cta:focus-visible {
+  outline: 4px solid #fff;
+  outline-offset: 4px;
+  border-radius: 10px;
+}
+
+/* 6 · Media rows → horizontal flex strip, scrollable with d-pad */
+.row { margin-bottom: 48px; }
+.row-title { font-size: 26px; margin-bottom: 20px; }
+.row-grid {
+  display: flex;
+  gap: 24px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  /* override grid */
+  grid-template-columns: unset;
+  padding-bottom: 8px;
+}
+.row-grid::-webkit-scrollbar { display: none; }
+
+/* 7 · Cards */
+.card {
+  flex: 0 0 210px;
+  scroll-snap-align: start;
+  border-radius: 10px;
+  transition: transform 0.15s, outline 0.1s;
+}
+.card:focus-visible {
+  transform: scale(1.1);
+  outline: 4px solid #e50914;
+  outline-offset: 4px;
+  border-radius: 10px;
+  z-index: 1;
+}
+.card-title { padding: 12px 12px 4px; font-size: 18px; }
+.card-meta { padding: 0 12px 12px; font-size: 16px; }
+
+/* 8 · Browse grid pages */
+.browse-header h1 { font-size: 44px; }
+.browse-header p { font-size: 22px; }
+.browse-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 28px;
+  grid-template-columns: unset;
+}
+.browse-grid .card { width: 210px; }
+
+/* 9 · Detail page */
+.back { font-size: 22px; margin-bottom: 28px; gap: 10px; }
+.detail-grid { grid-template-columns: 320px 1fr; gap: 48px; }
+.detail-title { font-size: 44px; margin-bottom: 20px; }
+.detail-tags { gap: 12px; margin-bottom: 24px; }
+.tag { font-size: 18px; padding: 8px 16px; }
+.tag.rating { font-size: 18px; }
+.detail-overview { font-size: 22px; line-height: 1.6; margin-bottom: 32px; }
+.actions { gap: 16px; }
+.btn {
+  padding: 18px 32px; font-size: 22px; border-radius: 10px;
+  border: 1px solid #444;
+}
+.btn.primary { background: #fff; color: #000; border-color: #fff; }
+.btn:focus-visible {
+  outline: 4px solid #e50914;
+  outline-offset: 4px;
+  border-radius: 10px;
+}
+
+/* 10 · Player page */
+.player-wrap { max-width: 100%; padding: 32px 80px; }
+.player-back { font-size: 22px; margin-bottom: 24px; }
+.player-back svg { width: 24px; height: 24px; }
+
+/* 11 · Video player controls — bigger for remote use */
+.vp-container:focus-visible { outline: 4px solid #e50914; }
+.vp-spinner { width: 72px; height: 72px; border-width: 6px; }
+.vp-controls { padding: 20px 24px 24px; }
+.vp-title { font-size: 20px; margin-bottom: 12px; }
+.vp-seek { height: 6px; margin-bottom: 14px; }
+.vp-row { gap: 20px; }
+.vp-row button svg { width: 34px; height: 34px; }
+.vp-volume { width: 120px; height: 6px; }
+.vp-time { font-size: 20px; }
+.vp-error h3 { font-size: 26px; }
+.vp-error p { font-size: 20px; }
+.vp-error button { font-size: 20px; padding: 14px 28px; }
+
+/* 12 · Embed source tabs */
+.embed-controls { margin-bottom: 16px; gap: 16px; }
+.embed-source-tab,
+.embed-next {
+  font-size: 20px; padding: 16px 22px; border-radius: 10px;
+}
+.embed-source-tab:focus-visible,
+.embed-next:focus-visible {
+  outline: 4px solid #e50914;
+  outline-offset: 3px;
+}
+
+/* 13 · Skeleton loaders */
+.skeleton { border-radius: 10px; }
+
+/* 14 · Sport page adjustments (inherits from above, add specifics below if needed) */
+

@@ -1,0 +1,17 @@
+{
+  "name": "cinecast-tv",
+  "version": "1.0.0",
+  "private": true,
+  "description": "CineCast — LG webOS TV streaming app",
+  "scripts": {
+    "dev": "cd frontend && npm run dev",
+    "build": "cd frontend && npm run build",
+    "start": "python3 run.py",
+    "backend": "cd backend && uvicorn main:app --reload --port 8030",
+    "icons": "cd webos && python3 generate-icons.py",
+    "webos:package": "npm run icons && ares-package webos --outdir dist",
+    "webos:install": "ares-install --device tv dist/com.cinecast.tv_1.0.0_all.ipk",
+    "webos:launch": "ares-launch --device tv com.cinecast.tv",
+    "webos:dev": "npm run icons && ares-package webos --outdir dist && ares-install --device tv dist/com.cinecast.tv_1.0.0_all.ipk && ares-launch --device tv com.cinecast.tv"
+  }
+}
