@@ -1,4 +1,10 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8030";
+// Server components run on the PC so localhost works fine.
+// The TV browser must use relative paths (/api/...) so Next.js proxies
+// the request to the backend — "localhost" in the TV browser means the TV itself.
+const IS_BROWSER = typeof window !== "undefined";
+const API_BASE = IS_BROWSER
+  ? ""
+  : (process.env.NEXT_PUBLIC_API_URL || process.env.BACKEND_URL || "http://localhost:8030");
 
 export interface Movie {
   id: number;
