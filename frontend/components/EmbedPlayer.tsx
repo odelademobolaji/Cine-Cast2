@@ -90,6 +90,7 @@ export default function EmbedPlayer({ title, sources }: EmbedPlayerProps) {
           allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
           referrerPolicy="origin"
           allowFullScreen
+          sandbox="allow-scripts allow-same-origin allow-forms allow-presentation allow-popups"
         />
       )}
     </div>
