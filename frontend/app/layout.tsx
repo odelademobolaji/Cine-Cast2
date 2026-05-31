@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import './globals.css';
 import TVBackHandler from '@/components/TVBackHandler';
+import TVScrollManager from '@/components/TVScrollManager';
 
 export const metadata = {
   title: 'CineCast',
@@ -13,6 +14,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         {/* Handles webOS hardware back button and registers media keys */}
         <TVBackHandler />
+        {/* Scrolls focused element into view when d-pad moves focus */}
+        <TVScrollManager />
         <nav className="nav">
           <div className="logo">Cine<span className="dot">Cast</span></div>
           <div className="nav-links">
